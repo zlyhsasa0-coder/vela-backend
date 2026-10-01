@@ -1,4 +1,4 @@
-from fastapi import FastAPI
+﻿from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
@@ -45,6 +45,9 @@ class OrderDB(Base):
     items = Column(Text)
     total = Column(Float)
     status = Column(String)
+    telegram_user_id = Column(String, index=True, nullable=True)
+    telegram_username = Column(String, nullable=True)
+    telegram_first_name = Column(String, nullable=True)
 
 
 Base.metadata.create_all(bind=engine)
@@ -54,6 +57,9 @@ class OrderCreate(BaseModel):
     order_number: str
     items: str
     total: float
+    telegram_user_id: str | None = None
+    telegram_username: str | None = None
+    telegram_first_name: str | None = None
 
 
 @app.get("/")
@@ -81,6 +87,9 @@ def create_order(order: OrderCreate):
         items=order.items,
         total=order.total,
         status="Принят",
+        telegram_user_id=order.telegram_user_id,
+        telegram_username=order.telegram_username,
+        telegram_first_name=order.telegram_first_name,
     )
 
     db.add(new_order)
@@ -93,6 +102,9 @@ def create_order(order: OrderCreate):
         "items": new_order.items,
         "total": new_order.total,
         "status": new_order.status,
+        "telegram_user_id": new_order.telegram_user_id,
+        "telegram_username": new_order.telegram_username,
+        "telegram_first_name": new_order.telegram_first_name,
     }
 
     db.close()
@@ -113,6 +125,9 @@ def get_orders():
             "items": order.items,
             "total": order.total,
             "status": order.status,
+            "telegram_user_id": order.telegram_user_id,
+            "telegram_username": order.telegram_username,
+            "telegram_first_name": order.telegram_first_name,
         }
         for order in orders
     ]

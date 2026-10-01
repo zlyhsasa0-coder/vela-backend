@@ -1,14 +1,25 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
 from sqlalchemy.orm import declarative_base, sessionmaker
 
+
 app = FastAPI(title="VELA API")
 
 
-# =========================
-# DATABASE
-# =========================
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=[
+        "http://localhost:5173",
+        "http://127.0.0.1:5173",
+        "https://vela-7li.pages.dev",
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 
 DATABASE_URL = "sqlite:///./vela.db"
 
@@ -39,19 +50,11 @@ class OrderDB(Base):
 Base.metadata.create_all(bind=engine)
 
 
-# =========================
-# MODELS
-# =========================
-
 class OrderCreate(BaseModel):
     order_number: str
     items: str
     total: float
 
-
-# =========================
-# BASIC ROUTES
-# =========================
 
 @app.get("/")
 def root():
@@ -68,10 +71,6 @@ def health():
         "message": "VELA backend работает",
     }
 
-
-# =========================
-# ORDERS
-# =========================
 
 @app.post("/api/orders")
 def create_order(order: OrderCreate):

@@ -1,4 +1,4 @@
-﻿from fastapi import FastAPI
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from sqlalchemy import create_engine, Column, Integer, String, Float, Text
@@ -8,18 +8,20 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 app = FastAPI(title="VELA API")
 
 
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://vela-7li.pages.dev",
-    ],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# =========================
+# CORS
+# =========================
 
+allow_origins=[
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+    "https://vela-7li.pages.dev",
+],
+
+
+# =========================
+# DATABASE
+# =========================
 
 DATABASE_URL = "sqlite:///./vela.db"
 
@@ -45,22 +47,63 @@ class OrderDB(Base):
     items = Column(Text)
     total = Column(Float)
     status = Column(String)
-    telegram_user_id = Column(String, index=True, nullable=True)
-    telegram_username = Column(String, nullable=True)
-    telegram_first_name = Column(String, nullable=True)
 
 
 Base.metadata.create_all(bind=engine)
 
 
+def migrate_orders_table():
+    with engine.begin() as connection:
+        columns = connection.execute(
+            text("PRAGMA table_info(orders)")
+        ).fetchall()
+
+        existing_columns = {
+            column[1]
+            for column in columns
+        }
+
+        if "telegram_user_id" not in existing_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE orders "
+                    "ADD COLUMN telegram_user_id VARCHAR"
+                )
+            )
+
+        if "telegram_username" not in existing_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE orders "
+                    "ADD COLUMN telegram_username VARCHAR"
+                )
+            )
+
+        if "telegram_first_name" not in existing_columns:
+            connection.execute(
+                text(
+                    "ALTER TABLE orders "
+                    "ADD COLUMN telegram_first_name VARCHAR"
+                )
+            )
+
+
+migrate_orders_table()
+
+
+# =========================
+# MODELS
+# =========================
+
 class OrderCreate(BaseModel):
     order_number: str
     items: str
     total: float
-    telegram_user_id: str | None = None
-    telegram_username: str | None = None
-    telegram_first_name: str | None = None
 
+
+# =========================
+# BASIC ROUTES
+# =========================
 
 @app.get("/")
 def root():
@@ -78,6 +121,10 @@ def health():
     }
 
 
+# =========================
+# ORDERS
+# =========================
+
 @app.post("/api/orders")
 def create_order(order: OrderCreate):
     db = SessionLocal()
@@ -87,9 +134,6 @@ def create_order(order: OrderCreate):
         items=order.items,
         total=order.total,
         status="Принят",
-        telegram_user_id=order.telegram_user_id,
-        telegram_username=order.telegram_username,
-        telegram_first_name=order.telegram_first_name,
     )
 
     db.add(new_order)
@@ -102,9 +146,6 @@ def create_order(order: OrderCreate):
         "items": new_order.items,
         "total": new_order.total,
         "status": new_order.status,
-        "telegram_user_id": new_order.telegram_user_id,
-        "telegram_username": new_order.telegram_username,
-        "telegram_first_name": new_order.telegram_first_name,
     }
 
     db.close()
@@ -125,9 +166,6 @@ def get_orders():
             "items": order.items,
             "total": order.total,
             "status": order.status,
-            "telegram_user_id": order.telegram_user_id,
-            "telegram_username": order.telegram_username,
-            "telegram_first_name": order.telegram_first_name,
         }
         for order in orders
     ]
